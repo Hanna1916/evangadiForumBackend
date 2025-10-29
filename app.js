@@ -59,7 +59,13 @@ app.get("/health", (req, res) => {
     database: "Connected",
   });
 });
-
+// Update your routes to use temporary data if DB fails
+app.get("/api/test", (req, res) => {
+  res.json({
+    message: "Backend is running!",
+    database: "Using temporary storage for now",
+  });
+});
 // 404 handler for undefined routes
 app.use("*", (req, res) => {
   res.status(404).json({

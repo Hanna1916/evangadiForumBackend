@@ -1,10 +1,27 @@
 {
-  "name": "backend",
+  "name": "evangadi-forum-backend",
   "version": "1.0.0",
+  "description": "Backend API for Evangadi Forum - Q&A platform",
   "type": "module",
+  "main": "app.js",
   "scripts": {
     "start": "node app.js",
-    "dev": "node app.js"
+    "dev": "node app.js",
+    "build": "echo 'No build step needed for Node.js backend'"
+  },
+  "keywords": [
+    "forum",
+    "q&a",
+    "evangadi",
+    "api",
+    "express",
+    "mysql"
+  ],
+  "author": "Hana",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   },
   "dependencies": {
     "express": "4.18.2",

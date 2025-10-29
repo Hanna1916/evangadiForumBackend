@@ -2,41 +2,52 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import db from "../config/dbConfig.js";
 import { StatusCodes } from "http-status-codes";
-
-
-
-// Register Controller
+// Register Controller (Simplified - matches your database)
 export const register = async (req, res) => {
   try {
-    const { username, first_name, last_name, email, password } = req.body;
-    if (!username || !first_name || !last_name || !email || !password) {
-      return res.status(StatusCodes.BAD_REQUEST).json({ message: "All fields are required" });
+    console.log("📨 Register request body:", req.body);
+
+    const { username, email, password } = req.body;
+
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        message: "Username, email, and password are required",
+      });
     }
 
-    const [userExists] = await db.query("SELECT * FROM users WHERE email = ?", [
-      email,
-    ]);
-    if (userExists.length > 0) {
-      return res.status(StatusCodes.BAD_REQUEST).json({ message: "Email already registered" });
-    }
-    if (password.length < 8) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .json({ message: "Password must be at least 8 characters long" });
-    }
-    const hashedPassword = await bcrypt.hash(password, 10);
-    await db.query(
-      "INSERT INTO users (username, first_name, last_name, email, password) VALUES (?, ?, ?, ?, ?)",
-      [username, first_name, last_name, email, hashedPassword]
+    // Check if user exists
+    const [userExists] = await db.query(
+      "SELECT * FROM users WHERE email = ? OR username = ?",
+      [email, username]
     );
 
-    res.status(StatusCodes.CREATED).json({ message: "User registered successfully" });
+    if (userExists.length > 0) {
+      return res.status(400).json({
+        message: "Email or username already exists",
+      });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert user (only fields that exist in your table)
+    await db.query(
+      "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
+      [username, email, hashedPassword]
+    );
+
+    console.log("✅ User registered successfully:", username);
+    res.status(201).json({
+      message: "User registered successfully",
+    });
   } catch (err) {
-    console.error("Register error:", err);
-    res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: "Server error" });
+    console.error("❌ Register error details:", err);
+    res.status(500).json({
+      message: "Registration failed",
+      error: err.message,
+    });
   }
 };
-
 // Login Controller
 export const login = async (req, res) => {
   try {
@@ -56,7 +67,7 @@ export const login = async (req, res) => {
       return res.status(400).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
-      { id: existingUser.user_id, email: existingUser.email },
+      { id: existingUser.id, email: existingUser.email }, // ✅ Use 'id' not 'user_id'
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -65,7 +76,7 @@ export const login = async (req, res) => {
       message: "Login successful",
       token,
       user: {
-        id: existingUser.user_id,
+        user_id: existingUser.id, // ✅ Use 'id' as 'user_id' for frontend
         username: existingUser.username,
         email: existingUser.email,
       },
@@ -79,11 +90,10 @@ export const login = async (req, res) => {
 // Check User Controller
 export const checkUser = async (req, res) => {
   try {
-    //  No need to extract token again, middleware already did it
     const userId = req.user.id;
 
     const [user] = await db.query(
-      "SELECT user_id, username, email FROM users WHERE user_id = ?",
+      "SELECT id, username, email FROM users WHERE id = ?", // ✅ Use 'id' not 'user_id'
       [userId]
     );
 

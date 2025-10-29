@@ -8,8 +8,11 @@ import {
 
 const router = express.Router();
 
-router.get("/", getAllQuestions);
-router.get("/:question_id", getSingleQuestion);
-router.post("/", createQuestion);
+// ✅ GET routes (public - no auth needed)
+router.get("/", getAllQuestions); // GET /api/question/
+router.get("/:question_id", getSingleQuestion); // GET /api/question/123
+
+// ✅ POST route (protected - needs auth)
+router.post("/", authenticate, createQuestion); // POST /api/question/
 
 export default router;

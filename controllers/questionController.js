@@ -1,15 +1,14 @@
-import { v4 as uuidv4 } from "uuid";
 import db from "../config/dbConfig.js";
-import jwt from "jsonwebtoken";
+import { StatusCodes } from "http-status-codes";
 
-// ================== GET all questions ==================
+// Get All Questions
 export const getAllQuestions = async (req, res) => {
   try {
     const [questions] = await db.query(
       `SELECT q.question_id, q.title, q.description, q.tag, q.created_at, q.updated_at, 
               u.username, u.email 
        FROM questions q 
-       JOIN users u ON q.user_id = u.user_id 
+       JOIN users u ON q.user_id = u.id 
        ORDER BY q.created_at DESC`
     );
 
@@ -20,56 +19,93 @@ export const getAllQuestions = async (req, res) => {
   }
 };
 
-// ================== GET single question ==================
+// Get Single Question
+// Get Single Question
 export const getSingleQuestion = async (req, res) => {
-  const { question_id } = req.params;
   try {
-    const [rows] = await db.query(
-      "SELECT * FROM questions WHERE question_id = ?",
+    const { question_id } = req.params;
+    console.log("🔄 Fetching single question:", question_id);
+
+    const [question] = await db.query(
+      `SELECT q.question_id, q.title, q.description, q.tag, q.created_at, q.updated_at,
+              u.username, u.email
+       FROM questions q
+       JOIN users u ON q.user_id = u.id
+       WHERE q.question_id = ?`,
       [question_id]
     );
 
-    if (rows.length === 0) {
-      return res.status(404).json({
-        error: "Not Found",
-        message: "The requested question could not be found.",
-      });
+    console.log("✅ Query result length:", question.length);
+
+    if (question.length === 0) {
+      return res.status(404).json({ message: "Question not found" });
     }
 
-    res.json({ question: rows[0] });
+    res.status(200).json({ question: question[0] });
   } catch (err) {
-    console.error("Get Single Question Error:", err);
+    console.error("❌ Get Single Question Error:", err);
+    console.error("❌ Error details:", err.message);
     res.status(500).json({
       error: "Internal Server Error",
-      message: "An unexpected error occurred.",
+      message: "Could not retrieve question",
     });
   }
 };
-
-// ================== CREATE question ==================
+// Create Question (REPLACE THIS FUNCTION)
 export const createQuestion = async (req, res) => {
   try {
+    console.log("🔄 createQuestion called");
+    console.log("📦 Request body:", req.body);
+    console.log("👤 Authenticated user:", req.user);
+
     const { title, description, tag } = req.body;
 
     if (!title || !description) {
+      console.log("❌ Missing title or description");
       return res.status(400).json({
-        error: "Bad Request",
-        message: "Please provide all required fields",
+        message: "Title and description are required",
       });
     }
 
-    const question_id = uuidv4();
-    await db.query(
-      "INSERT INTO questions (question_id, user_id, title, description, tag, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
-      [question_id, req.user.id, title, description, tag || null]
+    // Get user ID from authenticated user
+    const user_id = req.user.id;
+    console.log("👤 Using user_id:", user_id);
+
+    if (!user_id) {
+      console.log("❌ No user_id found");
+      return res.status(401).json({
+        message: "User not authenticated",
+      });
+    }
+
+    console.log("🗄️ Inserting into database...");
+
+    // Insert the question
+    const [result] = await db.query(
+      "INSERT INTO questions (title, description, tag, user_id) VALUES (?, ?, ?, ?)",
+      [title, description, tag || null, user_id]
     );
 
-    res.status(201).json({
-      message: "Question created successfully",
-      question_id,
-    });
+    console.log("✅ Database insert successful, ID:", result.insertId);
+
+    // Get the newly created question
+    const [newQuestion] = await db.query(
+      `SELECT q.question_id, q.title, q.description, q.tag, q.created_at, q.updated_at,
+              u.username, u.email
+       FROM questions q
+       JOIN users u ON q.user_id = u.id
+       WHERE q.question_id = ?`,
+      [result.insertId]
+    );
+
+    console.log("✅ Question created successfully:", newQuestion[0]);
+    res.status(201).json(newQuestion[0]);
   } catch (err) {
-    console.error("Create Question Error:", err);
+    console.error("❌ Create question error details:");
+    console.error("   Error message:", err.message);
+    console.error("   Error code:", err.code);
+    console.error("   SQL message:", err.sqlMessage);
+
     res.status(500).json({
       error: "Internal Server Error",
       message: "Could not create question",
